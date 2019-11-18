@@ -35,13 +35,27 @@ PAPER_HEIGHT = (MM_PER_INCH*11.0).mm;
 PAPER_WIDTH  = (MM_PER_INCH*8.5).mm;
 
 
-def get_card_geometry(card_width_inches=2.0, card_height_inches=2.0, rounded_corners=false, one_card_per_page=false)
+def get_card_geometry(card_width_units=2.0, card_height_units=2.0, rounded_corners=false, one_card_per_page=false, is_metric=false, has_bleed=false)
 	card_geometry = Hash.new
-	card_geometry["card_width"]        = (MM_PER_INCH*card_width_inches).mm
-	card_geometry["card_height"]       = (MM_PER_INCH*card_height_inches).mm
+
+	card_geometry["card_margin"] = 10 # Margin: 10pt
+	if (has_bleed)
+		card_geometry["card_bleed"]=17
+	else
+		card_geometry["card_bleed"]=0
+	end
+
+	if (is_metric)	# Metric cards measured in mm
+		card_geometry["card_width"]        = (card_width_units).mm
+		card_geometry["card_height"]       = (card_height_units).mm
+	else 		# US/Imperial measurements, i.e. inches. The default.
+		card_geometry["card_width"]        = (MM_PER_INCH*card_width_units).mm
+		card_geometry["card_height"]       = (MM_PER_INCH*card_height_units).mm
+	end
 	
 	card_geometry["rounded_corners"]   = rounded_corners == true ? ((1.0/8.0)*MM_PER_INCH).mm : rounded_corners
 	card_geometry["one_card_per_page"] = one_card_per_page
+	card_geometry["has_bleed"]         = has_bleed
 
 	if card_geometry["one_card_per_page"]
 		card_geometry["paper_width"]       = card_geometry["card_width"]
@@ -106,11 +120,14 @@ def box(pdf, card_geometry, index, &blck)
 	column = index%card_geometry["cards_across"]
 	row = card_geometry["cards_high"] - index/card_geometry["cards_across"]
 
-	# Margin: 10pt
-	x = card_geometry["card_width"] * column + 10
-	y = card_geometry["card_height"] * row - 10
+	card_margin=card_geometry["card_margin"] # Margin: 10pt
+	x = card_geometry["card_width"] * column + card_margin
+	y = card_geometry["card_height"] * row - card_margin
 
-	pdf.bounding_box([x,y], width: card_geometry["card_width"]-20, height: card_geometry["card_height"]-10, &blck)
+	# Bleed, if applicable
+	card_bleed=card_geometry["card_bleed"]
+
+	pdf.bounding_box([x+card_bleed,y-card_bleed], width: card_geometry["card_width"]-(card_margin*2+card_bleed*2), height: card_geometry["card_height"]-(card_margin+card_bleed*2), &blck)
 end
 
 def draw_logos(pdf, card_geometry, icon)
@@ -119,7 +136,8 @@ def draw_logos(pdf, card_geometry, icon)
 		box(pdf, card_geometry, idx) do
 			logo_max_height = 15
 			logo_max_width = card_geometry["card_width"]/2
-			pdf.image icon, fit: [logo_max_width,logo_max_height], at: [pdf.bounds.left,pdf.bounds.bottom+25]
+			logo_bounds_bottom = pdf.bounds.bottom+logo_max_height+card_geometry["card_margin"]
+			pdf.image icon, fit: [logo_max_width,logo_max_height], at: [pdf.bounds.left,logo_bounds_bottom]
 		end
 		idx = idx + 1
 	end
@@ -287,38 +305,41 @@ def render_card_page(pdf, card_geometry, icon, statements, is_black)
 	
 			pdf.font "Helvetica", :style => :bold
 			#pick 2
+
+			pick_box_bottom = pdf.bounds.bottom + 10 + card_geometry["card_margin"]
+
 			if is_pick2
-				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pdf.bounds.bottom+20]
+				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pick_box_bottom]
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+15.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pick_box_bottom-4.5],7.5)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+21]
+				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pick_box_bottom+1]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 			end
 	
 			#pick 3
 			if is_pick3
-				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pdf.bounds.bottom+20]
+				pdf.text_box "PICK", size:11, align: :right, width:30, at: [pdf.bounds.right-50,pick_box_bottom]
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+15.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pick_box_bottom-4.5],7.5)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "3", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+21]
+				pdf.text_box "3", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pick_box_bottom+1]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 
 
-				pdf.text_box "DRAW", size:11, align: :right, width:35, at: [pdf.bounds.right-55,pdf.bounds.bottom+40]
+				pdf.text_box "DRAW", size:11, align: :right, width:35, at: [pdf.bounds.right-55,pick_box_bottom+20]
 				pdf.fill_and_stroke(:fill_color=>"ffffff", :stroke_color=>"ffffff") do
-					pdf.circle([pdf.bounds.right-10,pdf.bounds.bottom+35.5],7.5)
+					pdf.circle([pdf.bounds.right-10,pick_box_bottom-4.5+20],7.5)
 				end
 				pdf.stroke_color '000000'
 				pdf.fill_color '000000'
-				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pdf.bounds.bottom+41]
+				pdf.text_box "2", color:"000000", size:14, width:8, align: :center, at:[pdf.bounds.right-14,pick_box_bottom+21]
 				pdf.stroke_color "ffffff"
 				pdf.fill_color "ffffff"
 			end
@@ -580,11 +601,14 @@ def print_help
 	puts "specify, generating a separate pdf for every directory that"
 	puts "contains black.txt, white.txt or both."
 	puts ""
-	puts "You may specify the card size by passing either the --small"
-	puts " or --large flag.  If you pass the --small flag then small"
-	puts "cards of size 2\"x2\" will be produced. If you pass the --large"
-	puts "flag larger cards of size 2.5\"x3.5\" will be produced. Small"
-	puts "cards are produced by default."
+	puts "You may specify the card size by passing a flag: --small,"
+	puts "--large, --largemetric, or --largemetricbleed. The --small"
+        puts "flag will produce square cards of size 2\"x2\"."
+	puts "--large produces larger cards of size 2.5\"x3.5\";"
+	puts "--largemetric produces cards at 63mm x 88mm (2.48\"x3.46\")."
+	puts "--largemetricbleed produces 63mm x 88mm cards with bleed"
+        puts "to 2.72\"x3.7\" (e.g. for printing by Printer's Studio)."
+	puts "By default, small cards will be produced."
 	puts ""
 	puts "All flags:"
 	puts "\t-b,--black\t\tBlack card file"
@@ -592,6 +616,8 @@ def print_help
 	puts "\t-h,--help\t\tPrint this Help message"
 	puts "\t-i,--icon\t\tIcon file, should be .jpg or .png"
 	puts "\t-l,--large\t\tGenerate large 2.5\"x3.5\" cards"
+	puts "\t-m,--largemetric\tGenerate large 63mm x 88mm cards"
+	puts "\t-M,--largemetricbleed\tDitto, w bleed to 2.72\"x3.7\""
 	puts "\t-o,--output\t\tOutput file, will be a .pdf file"
 	puts "\t-s,--small\t\tGenerate small 2\"x2\" cards"
 	puts "\t-w,--white\t\tWhite card file"
@@ -625,7 +651,19 @@ if not (ENV['REQUEST_URI']).nil?
 	
 	one_per_page    = page_layout == "oneperpage" ? true : false
 	rounded_corners = card_size    == "LR"         ? true : false
-	card_geometry   = card_size    == "S" ? get_card_geometry(2.0,2.0,rounded_corners,one_per_page) : get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
+	if (card_size == "S") # Small, square cards
+		card_geometry = get_card_geometry(2.0,2.0,rounded_corners,one_per_page)
+	else
+		if (card_size == "LM")	# Metric cards
+			card_geometry = get_card_geometry(63,88,rounded_corners,one_per_page,true)
+		else
+			if (card_size == "LMB")	# Metric cards with bleed to 2.72" x 3.7"
+				card_geometry = get_card_geometry(2.72,3.7,rounded_corners,one_per_page,false,true)
+			else			# US/Imperial cards
+				card_geometry = get_card_geometry(2.5,3.5,rounded_corners,one_per_page)
+			end
+		end
+	end
 	
 	render_cards nil, nil, nil, icon, "cards.pdf", true, false, false, card_geometry, white_cards, black_cards, true
 
@@ -651,6 +689,10 @@ else
 	flag_defs["--small"]       = "small"
 	flag_defs["-l"]            = "large"
 	flag_defs["--large"]       = "large"
+	flag_defs["-m"]            = "largemetric"
+	flag_defs["--largemetric"] = "largemetric"
+	flag_defs["-M"]            = "largemetricbleed"
+	flag_defs["--largemetricbleed"] = "largemetricbleed"
 	flag_defs["-r"]            = "rounded"
 	flag_defs["--rounded"]     = "rounded"
 	flag_defs["-p"]            = "oneperpage"
@@ -663,6 +705,12 @@ else
 	card_geometry = get_card_geometry(2.0,2.0, !(args["rounded"]).nil?, !(args["oneperpage"]).nil? )
 	if args.has_key? "large"
 		card_geometry = get_card_geometry(2.5,3.5, (not (args["rounded"]).nil?), (not (args["oneperpage"]).nil? ))
+	end
+	if args.has_key? "largemetric"
+		card_geometry = get_card_geometry(63,88,(not (args["rounded"]).nil?), (not (args["oneperpage"]).nil? ),true)
+	end
+	if args.has_key? "largemetricbleed"
+		card_geometry = get_card_geometry(2.72,3.7,(not (args["rounded"]).nil?), (not (args["oneperpage"]).nil? ))
 	end
 	
 	if args.has_key? "help" or args.length == 0 or ( (not args.has_key? "white") and (not args.has_key? "black") and (not args.has_key? "dir") )

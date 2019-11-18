@@ -4,6 +4,12 @@ Bigger, Blacker cards can be used either as a standalone, command line program o
 
 In order to use the script as a cgi script, copy the index.html file to your web server root directory, and then copy bbcards.rb to cards.pdf under your web server root directory. Configure your web server to run cards.pdf as a cgi script, and it should work properly.
 
+For example, if you are using Apache, you might add directives like this to your site configuration:
+```        <Files "cards.pdf">
+                AddHandler cgi-script .pdf
+                Options +ExecCGI
+        </Files>```
+
 Instructions for using the cgi script are included in the index.html file.
 
 Instructions for using bbcards.rb on the command line will be displayed if you run bbcards.rb from the command line with no arguments.
